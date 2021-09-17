@@ -14,8 +14,11 @@ BOT_NICK = os.getenv('BOT_NAME')
 BOT_PREFIX = os.getenv('BOT_PREFIX')
 CHANNELS = os.getenv('CHANNELS').split(",")
 
-viewers = {}
+CAP = int(os.getenv('CAP'))
+WINRATE = int(os.getenv('WINRATE'))
+LOSERATE = int(os.getenv('LOSERATE'))
 
+viewers = {}
 
 class Bot(commands.Bot):
 
@@ -43,6 +46,62 @@ class Bot(commands.Bot):
     @commands.command()
     async def hello(self, ctx: commands.Context):
         await ctx.send(f"Hello {ctx.author.name}!")
+
+    @commands.command()
+    async def points(self, ctx: commands.Context):
+        # Load from JSON
+        viewers = readJSON(ctx.channel.name)
+
+        name = ctx.author.name.lower()
+        if name not in viewers:
+            await ctx.send(f"@{ctx.author.name} You don't have points.")
+            return
+
+        # Number of Points
+        num = int(viewers[name]["points"])
+
+        await ctx.send(f"@{ctx.author.name} You have {num} points")
+
+    @commands.command()
+    async def gamble(ctx, stake: int = 10):
+        # Load Stats for Viewer
+        viewers = readJSON(ctx.channel.name)
+        name = ctx.author.name.lower()
+
+        if name not in viewers:
+            await ctx.send(f"@{ctx.author.name} You can't gamble yet.")
+            return
+    
+        # Default Stats for Viewer
+        stats = viewers[name]
+
+        # Check if viewer has enough Money
+        if stats["points"] < stake:
+            await ctx.send(f"@{ctx.author.name} You don't have enough points.")
+            return
+
+        # GAMBLING MECHANICS
+        rng = randrange(0, 100)
+
+        msg = f"Draw! No points gained or lost."
+
+        # WIN
+        if rng < WINRATE:
+            profit = stake * 2
+            stats["points"] += profit
+
+            msg = f"You won! +{profit} points!"        
+            
+        # LOSE
+        elif rng >= CAP - LOSERATE:
+            stats["points"] -= stake
+            
+            msg = f"You lost! -{stake} points!"
+
+        # Save new Stats to file
+        writeJSON(ctx.channel.name, viewers, name, stats)
+
+        await ctx.send(msg)
 
 
     """
